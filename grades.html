@@ -1,0 +1,162 @@
+<!-- ═══════════════════════════════════════════════
+     CLOCK TOOLBAR — drop this just before </body>
+     Reads CSS variables from the clock's theme system
+     ═══════════════════════════════════════════════ -->
+
+<style>
+  /* ── Toolbar container ─────────────────────────── */
+  #app-toolbar {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 60;
+
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.3rem;
+
+    /* Floating pill — uses clock's CSS vars */
+    background: rgb(var(--content));
+    border: 1px solid rgb(var(--content-secondary));
+    border-radius: 9999px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+
+    transition: background 0.4s, border-color 0.3s, box-shadow 0.3s;
+  }
+
+  .dark #app-toolbar {
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5), 0 1px 4px rgba(0,0,0,0.3);
+  }
+
+  /* ── Toolbar buttons ───────────────────────────── */
+  .tb-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.45rem 1.1rem;
+    border-radius: 9999px;
+    border: none;
+    background: transparent;
+    color: rgb(var(--secondary));
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-family: inherit;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s, transform 0.12s;
+    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  .tb-btn:hover {
+    background: rgb(var(--content-secondary));
+    color: rgb(var(--primary));
+  }
+
+  .tb-btn:active {
+    transform: scale(0.95);
+  }
+
+  /* Active / current page pill */
+  .tb-btn.tb-active {
+    background: rgb(var(--primary));
+    color: rgb(var(--sidebar));
+    box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+  }
+
+  .dark .tb-btn.tb-active {
+    background: rgb(var(--primary));
+    color: rgb(var(--content));
+  }
+
+  /* Divider between groups */
+  .tb-divider {
+    width: 1px;
+    height: 1.1rem;
+    background: rgb(var(--content-secondary));
+    flex-shrink: 0;
+    margin: 0 0.1rem;
+  }
+
+  /* ── Install button (accent) ───────────────────── */
+  #tb-install-btn {
+    display: none; /* shown only when PWA installable */
+    background: rgb(var(--primary));
+    color: rgb(var(--sidebar));
+    padding: 0.45rem 1rem;
+  }
+
+  #tb-install-btn:hover {
+    opacity: 0.85;
+    background: rgb(var(--primary));
+    color: rgb(var(--sidebar));
+  }
+
+  .dark #tb-install-btn {
+    background: rgb(var(--primary));
+    color: rgb(var(--content));
+  }
+</style>
+
+<nav id="app-toolbar" role="navigation" aria-label="App navigation">
+  <!-- Clock (active) -->
+  <a href="./" class="tb-btn tb-active" id="tb-clock" aria-current="page">
+    Clock
+  </a>
+
+  <!-- Grades -->
+  <a href="./grades" class="tb-btn" id="tb-grades">
+    Grades
+  </a>
+
+  <div class="tb-divider"></div>
+
+  <!-- Install PWA (hidden until browser fires beforeinstallprompt) -->
+  <button class="tb-btn" id="tb-install-btn" aria-label="Install app">
+    Install
+  </button>
+</nav>
+
+<script>
+  // ── Mark active tab by URL ──────────────────────────────────────────────
+  (function() {
+    const path = window.location.pathname;
+    document.querySelectorAll('.tb-btn[href]').forEach(btn => {
+      btn.classList.remove('tb-active');
+      btn.removeAttribute('aria-current');
+    });
+    if (path.includes('grades')) {
+      document.getElementById('tb-grades').classList.add('tb-active');
+      document.getElementById('tb-grades').setAttribute('aria-current', 'page');
+      document.getElementById('tb-clock').classList.remove('tb-active');
+    } else {
+      document.getElementById('tb-clock').classList.add('tb-active');
+      document.getElementById('tb-clock').setAttribute('aria-current', 'page');
+    }
+  })();
+
+  // ── PWA install prompt ──────────────────────────────────────────────────
+  let _installEvt = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    _installEvt = e;
+    document.getElementById('tb-install-btn').style.display = '';
+  });
+  document.getElementById('tb-install-btn').addEventListener('click', async () => {
+    if (!_installEvt) return;
+    _installEvt.prompt();
+    const { outcome } = await _installEvt.userChoice;
+    if (outcome === 'accepted') document.getElementById('tb-install-btn').style.display = 'none';
+    _installEvt = null;
+  });
+  window.addEventListener('appinstalled', () => {
+    document.getElementById('tb-install-btn').style.display = 'none';
+  });
+</script>
