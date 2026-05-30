@@ -13,9 +13,9 @@
  */
 
 const NAV_ITEMS = [
-  { label: 'Clock',     href: './clock'     },
-  { label: 'Grades',    href: './grades'    },
-  { label: 'Countdown', href: './countdown' },
+  { label: 'Clock',     href: '/clock'     },
+  { label: 'Grades',    href: '/grades'    },
+  { label: 'Countdown', href: '/countdown' },
 ];
 
 /* ── PWA install (optional — shows only when browser fires the prompt) ────── */
