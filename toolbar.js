@@ -13,9 +13,9 @@
  */
 
 const NAV_ITEMS = [
-  { label: 'Clock',     href: '/clock'     },
-  { label: 'Grades',    href: '/grades'    },
-  { label: 'Countdown', href: '/countdown' },
+  { label: 'Clock',     href: '/sms'           },
+  { label: 'Grades',    href: '/sms/grades'    },
+  { label: 'Countdown', href: '/sms/countdown' },
 ];
 
 /* ── PWA install (optional — shows only when browser fires the prompt) ────── */
@@ -28,8 +28,8 @@ const SHOW_INSTALL = true;
   /* Detect active page by matching href tail against current path */
   function isActive(href) {
     const path = location.pathname.replace(/\/$/, '') || '/';
-    const target = href.replace(/^\./, '').replace(/\/index\.html$/, '') || '/';
-    return path === target || path.endsWith(target);
+    const target = href.replace(/\/index\.html$/, '').replace(/\/$/, '') || '/';
+    return path === target;
   }
 
   /* Inject styles once, scoped to #_toolbar so they never bleed */
