@@ -204,73 +204,7 @@
     }
     .period-dot.active { background: rgb(var(--theme)); }
 
-    /* ════════════════════════════════════
-       TOOLBAR
-       ════════════════════════════════════ */
-    #app-toolbar {
-      position: fixed;
-      bottom: 1.5rem;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 60;
-      display: flex;
-      align-items: center;
-      gap: 0.25rem;
-      padding: 0.3rem;
-      background: rgb(var(--content));
-      border: 1px solid rgb(var(--content-secondary));
-      border-radius: 9999px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      transition: background 0.4s, border-color 0.3s, box-shadow 0.3s;
-    }
-    .dark #app-toolbar {
-      box-shadow: 0 4px 24px rgba(0,0,0,0.5), 0 1px 4px rgba(0,0,0,0.3);
-    }
-
-    .tb-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.35rem;
-      padding: 0.45rem 1.1rem;
-      border-radius: 9999px;
-      border: none;
-      background: transparent;
-      color: rgb(var(--secondary));
-      font-size: 0.8rem;
-      font-weight: 600;
-      font-family: inherit;
-      letter-spacing: 0.01em;
-      text-decoration: none;
-      cursor: pointer;
-      transition: background 0.18s, color 0.18s, transform 0.12s;
-      white-space: nowrap;
-      -webkit-tap-highlight-color: transparent;
-      user-select: none;
-    }
-    .tb-btn:hover {
-      background: rgb(var(--content-secondary));
-      color: rgb(var(--primary));
-    }
-    .tb-btn:active { transform: scale(0.95); }
-
-    .tb-btn.tb-active {
-      background: rgb(var(--primary));
-      color: rgb(var(--sidebar));
-      box-shadow: 0 1px 4px rgba(0,0,0,0.18);
-    }
-
-    .tb-divider {
-      width: 1px;
-      height: 1.1rem;
-      background: rgb(var(--content-secondary));
-      flex-shrink: 0;
-      margin: 0 0.1rem;
-    }
-
-    #tb-install-btn { display: none; }
+    /* toolbar loaded via toolbar.js */
   </style>
 </head>
 
@@ -479,15 +413,8 @@
   </div>
 </div>
 
-<!-- ════════════════════════════════════════
-     TOOLBAR
-     ════════════════════════════════════════ -->
-<nav id="app-toolbar" role="navigation" aria-label="App navigation">
-  <a href="./" class="tb-btn tb-active" id="tb-clock" aria-current="page">Clock</a>
-  <a href="./grades" class="tb-btn" id="tb-grades">Grades</a>
-  <div class="tb-divider"></div>
-  <button class="tb-btn" id="tb-install-btn" aria-label="Install app">Install</button>
-</nav>
+<!-- ── Toolbar ── -->
+<script src="./toolbar.js"></script>
 
 <script>
 // ════════════════════════════════════════════════════════════════
@@ -1101,24 +1028,6 @@ function tickAll() {
   _origUpdateClock();
   if (localStorage.getItem('legacyUI') === 'true') updateLegacyClock();
 }
-
-// ─── Toolbar: PWA install prompt ───────────────────────────────────────────────
-let _installEvt = null;
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  _installEvt = e;
-  document.getElementById('tb-install-btn').style.display = '';
-});
-document.getElementById('tb-install-btn').addEventListener('click', async () => {
-  if (!_installEvt) return;
-  _installEvt.prompt();
-  const { outcome } = await _installEvt.userChoice;
-  if (outcome === 'accepted') document.getElementById('tb-install-btn').style.display = 'none';
-  _installEvt = null;
-});
-window.addEventListener('appinstalled', () => {
-  document.getElementById('tb-install-btn').style.display = 'none';
-});
 
 // ─── Start ─────────────────────────────────────────────────────────────────────
 init();
