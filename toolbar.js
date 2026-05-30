@@ -6,16 +6,16 @@
  *
  *  TO ADD / REMOVE ITEMS  ↓  edit NAV_ITEMS only.
  *  Each entry:
- *    { label: 'Display name', href: './path' }
- *  The active item is detected automatically from
- *  the current URL — no per-page config needed.
+ *    { label: 'Display name', href: '/any/path/you/want' }
+ *  Use any href you like — absolute paths, relative paths,
+ *  or full URLs. Active tab is auto-detected from the URL.
  * ─────────────────────────────────────────────
  */
 
 const NAV_ITEMS = [
-  { label: 'Clock',      href: './index.html'          },
-  { label: 'Grades',     href: './grades'   },
-  { label: 'Countdown',  href: './countdown'},
+  { label: 'Clock',     href: './clock'     },
+  { label: 'Grades',    href: './grades'    },
+  { label: 'Countdown', href: './countdown' },
 ];
 
 /* ── PWA install (optional — shows only when browser fires the prompt) ────── */
