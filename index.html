@@ -1,1046 +1,150 @@
-<!DOCTYPE html>
-<html lang="en" class="light">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <link rel="icon" type="image/x-icon" href="./loigo.ico">
-  <title>Clock</title>
-  <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22School%20Clock%22,%22short_name%22:%22Clock%22,%22start_url%22:%22./%22,%22display%22:%22standalone%22,%22background_color%22:%22%23f7f8fd%22,%22theme_color%22:%22%23a51618%22}">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: { extend: { fontFamily: { mono: ['Menlo','Monaco','Courier New','monospace'] } } }
-    }
-  </script>
-  <style>
-    :root {
-      --theme: 165 22 24;
-      --primary: 0 0 0 / .87;
-      --secondary: 0 0 0 / .54;
-      --tertiary: 0 0 0 / .1;
-      --sidebar: 255 255 255;
-      --background: 247 248 253;
-      --content: 255 255 255;
-      --content-secondary: 233 236 239;
-    }
-    .dark {
-      --theme: 255 89 76;
-      --primary: 255 255 255;
-      --secondary: 255 255 255 / .54;
-      --tertiary: 255 255 255 / .1;
-      --sidebar: 25 25 27;
-      --background: 35 35 37;
-      --content: 55 55 57;
-      --content-secondary: 42 42 44;
-    }
+/**
+ * ─────────────────────────────────────────────
+ *  SHARED TOOLBAR  —  toolbar.js
+ *  Drop  <script src="./toolbar.js"></script>
+ *  anywhere before </body> on any page.
+ *
+ *  TO ADD / REMOVE ITEMS  ↓  edit NAV_ITEMS only.
+ *  Each entry:
+ *    { label: 'Display name', href: '/any/path/you/want' }
+ *  Use any href you like — absolute paths, relative paths,
+ *  or full URLs. Active tab is auto-detected from the URL.
+ * ─────────────────────────────────────────────
+ */
 
-    * { box-sizing: border-box; }
-    body, html { height: 100%; overflow: hidden; margin: 0; padding: 0; }
-    body {
-      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background-color: rgb(var(--background));
-      color: rgb(var(--primary));
-      transition: background-color 0.4s, color 0.2s;
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-    }
+const NAV_ITEMS = [
+  { label: 'Clock',     href: '/sms/index.html'           },
+  { label: 'Grades',    href: '/sms/grades/index.html'    },
+  { label: 'Countdown', href: '/sms/countdown/index.html' },
+];
 
-    @keyframes gradientBG {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
-    .animate-gradient { animation: gradientBG 15s ease infinite; background-size: 400% 400%; }
+/* ── PWA install (optional — shows only when browser fires the prompt) ────── */
+const SHOW_INSTALL = true;
 
-    .watt-panel {
-      background: rgb(var(--content));
-      border: 1px solid rgb(var(--content-secondary));
-      border-radius: 0.75rem;
-    }
-    .watt-panel-secondary {
-      background: rgb(var(--content-secondary));
-      border-radius: 0.5rem;
-    }
+/* ═══════════════════════════════════════════════════════════════════
+   Internal — do not edit below unless you know what you're doing
+═══════════════════════════════════════════════════════════════════ */
+(function () {
+  /* Detect active page by matching href tail against current path */
+  function isActive(href) {
+    const path = location.pathname;
+    const clean = href.replace(/\/index\.html$/, '');
+    return path === href || path === clean || path === clean + '/';
+  }
 
-    .watt-shadow { box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06); }
-    .dark .watt-shadow { box-shadow: 0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.3); }
-
-    /* ── Circular analog clock ── */
-    .clock-wrap {
-      position: relative;
+  /* Inject styles once, scoped to #_toolbar so they never bleed */
+  const style = document.createElement('style');
+  style.textContent = `
+    #_toolbar {
+      position: fixed;
+      bottom: 1.4rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 4px;
       border-radius: 9999px;
-      overflow: hidden;
-      background: rgb(var(--content));
-      border: 1px solid rgb(var(--content-secondary));
+      /* neutral pill that works on any background */
+      background: rgba(20, 20, 22, 0.72);
+      border: 1px solid rgba(255,255,255,0.10);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.35), 0 1px 4px rgba(0,0,0,0.2);
+      white-space: nowrap;
     }
-    .clock-wrap::before {
-      content: '';
-      position: absolute;
-      inset: 6px;
+    #_toolbar a, #_toolbar button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 16px;
       border-radius: 9999px;
-      border: 1px solid rgb(var(--content-secondary));
-      opacity: 0.5;
-      pointer-events: none;
-      z-index: 1;
-    }
-
-    .clock-hand {
-      transform-origin: 50px 50px;
-      stroke-linecap: round;
-    }
-    .hand-smooth { transition: transform 0.5s cubic-bezier(0.4, 2.08, 0.55, 0.44); }
-    .hand-linear { transition: transform 0.1s linear; }
-
-    #second-hand { transition: opacity 0.3s ease, transform 0.1s linear; }
-
-    .modal {
-      transition: opacity 0.25s ease, transform 0.25s ease;
-      opacity: 0; pointer-events: none; transform: scale(0.97);
-    }
-    .modal.active { opacity: 1; pointer-events: auto; transform: scale(1); }
-
-    .custom-scroll::-webkit-scrollbar { width: 5px; }
-    .custom-scroll::-webkit-scrollbar-thumb { background-color: rgb(var(--content-secondary)); border-radius: 4px; }
-    .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-
-    .accent { color: rgb(var(--theme)); }
-    .accent-bg { background: rgb(var(--theme)); }
-    .accent-border { border-color: rgb(var(--theme)); }
-
-    .day-badge {
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 2.2rem; height: 2.2rem; border-radius: 9999px;
-      font-weight: 700; font-size: 1rem;
-      background: rgb(var(--theme)); color: white;
-      flex-shrink: 0;
-    }
-    .day-badge.day-b {
+      font-size: 13px;
+      font-weight: 500;
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      letter-spacing: 0.01em;
+      text-decoration: none;
+      border: none;
       background: transparent;
-      border: 2px solid rgb(var(--theme));
-      color: rgb(var(--theme));
+      color: rgba(255,255,255,0.55);
+      cursor: pointer;
+      transition: background 0.16s, color 0.16s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
     }
-
-    .progress-track {
-      width: 100%; height: 4px; border-radius: 9999px;
-      background: rgb(var(--content-secondary));
-      overflow: hidden;
+    #_toolbar a:hover, #_toolbar button:hover {
+      background: rgba(255,255,255,0.10);
+      color: rgba(255,255,255,0.9);
     }
-    .progress-fill {
-      height: 100%; border-radius: 9999px;
-      background: rgb(var(--theme));
-      transition: width 1s linear;
+    #_toolbar a:active, #_toolbar button:active {
+      transform: scale(0.95);
     }
-
-    .icon-btn {
-      padding: 0.5rem; border-radius: 0.5rem;
-      background: rgb(var(--content));
-      border: 1px solid rgb(var(--content-secondary));
-      color: rgb(var(--secondary));
-      cursor: pointer; transition: background 0.15s, color 0.15s;
-      display: flex; align-items: center; justify-content: center;
+    #_toolbar a._active {
+      background: rgba(255,255,255,0.14);
+      color: #ffffff;
     }
-    .icon-btn:hover { background: rgb(var(--content-secondary)); color: rgb(var(--primary)); }
-
-    select, textarea {
-      background: rgb(var(--background));
-      border: 1px solid rgb(var(--content-secondary));
-      color: rgb(var(--primary));
-      border-radius: 0.375rem;
-      padding: 0.4rem 0.6rem;
-      font-size: 0.875rem;
-      font-family: inherit;
-      width: 100%;
+    #_toolbar ._divider {
+      width: 1px;
+      height: 14px;
+      background: rgba(255,255,255,0.12);
+      flex-shrink: 0;
+      margin: 0 2px;
     }
-    select:focus, textarea:focus { outline: 2px solid rgb(var(--theme)); outline-offset: 1px; }
+    #_toolbar #_tb_install { display: none; }
+  `;
+  document.head.appendChild(style);
 
-    .settings-label {
-      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em;
-      text-transform: uppercase; color: rgb(var(--secondary));
-      margin-bottom: 0.4rem; display: block;
+  /* Build the nav */
+  const nav = document.createElement('nav');
+  nav.id = '_toolbar';
+  nav.setAttribute('aria-label', 'Site navigation');
+
+  NAV_ITEMS.forEach((item, i) => {
+    if (i > 0) {
+      const div = document.createElement('span');
+      div.className = '_divider';
+      div.setAttribute('aria-hidden', 'true');
+      nav.appendChild(div);
     }
-
-    .bg-btn {
-      padding: 0.375rem; font-size: 0.7rem; border-radius: 0.375rem;
-      border: 1px solid transparent; cursor: pointer; font-weight: 500;
-      transition: opacity 0.15s, transform 0.1s;
+    const a = document.createElement('a');
+    a.href = item.href;
+    a.textContent = item.label;
+    if (isActive(item.href)) {
+      a.className = '_active';
+      a.setAttribute('aria-current', 'page');
     }
-    .bg-btn:hover { opacity: 0.85; transform: scale(0.97); }
+    nav.appendChild(a);
+  });
 
-    .period-pill {
-      display: inline-block; padding: 0.15rem 0.6rem;
-      background: rgb(var(--theme) / 0.12);
-      color: rgb(var(--theme));
-      border-radius: 9999px; font-size: 0.75rem; font-weight: 600;
-    }
+  /* PWA install button */
+  if (SHOW_INSTALL) {
+    const div = document.createElement('span');
+    div.className = '_divider';
+    div.setAttribute('aria-hidden', 'true');
+    nav.appendChild(div);
 
-    @keyframes pulse-ring {
-      0% { box-shadow: 0 0 0 0 rgb(var(--theme) / 0.4); }
-      70% { box-shadow: 0 0 0 8px rgb(var(--theme) / 0); }
-      100% { box-shadow: 0 0 0 0 rgb(var(--theme) / 0); }
-    }
-    .pulse-ring { animation: pulse-ring 1.5s ease infinite; }
+    const btn = document.createElement('button');
+    btn.id = '_tb_install';
+    btn.textContent = 'Install';
+    btn.setAttribute('aria-label', 'Install app');
+    nav.appendChild(btn);
 
-    #toast {
-      position: fixed; bottom: 5rem; left: 50%; transform: translateX(-50%) translateY(4rem);
-      background: rgb(var(--content)); border: 1px solid rgb(var(--content-secondary));
-      border-radius: 0.75rem; padding: 0.6rem 1.2rem;
-      font-size: 0.8rem; color: rgb(var(--primary));
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-      transition: transform 0.3s ease, opacity 0.3s ease;
-      opacity: 0; white-space: nowrap; z-index: 999;
-    }
-    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
-
-    .period-list-item {
-      display: flex; align-items: center; gap: 0.5rem;
-      padding: 0.3rem 0.5rem; border-radius: 0.375rem;
-      font-size: 0.8rem;
-    }
-    .period-list-item.active-period { background: rgb(var(--theme) / 0.1); }
-    .period-dot {
-      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
-      background: rgb(var(--content-secondary));
-    }
-    .period-dot.active { background: rgb(var(--theme)); }
-
-    /* toolbar loaded via toolbar.js */
-  </style>
-</head>
-
-<body id="main-body" class="h-screen w-screen relative">
-<div id="toast"></div>
-
-<!-- Top controls -->
-<div class="absolute top-3 right-3 z-50 flex gap-2">
-  <button onclick="toggleScheduleList()" class="icon-btn" title="Period list">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-  </button>
-  <button onclick="toggleSettings()" class="icon-btn" title="Settings">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-  </button>
-</div>
-
-<!-- Main content — padded bottom for toolbar -->
-<div class="absolute inset-0 flex flex-col items-center justify-center p-4 pb-20 gap-4 z-10">
-
-  <!-- Circular analog clock -->
-  <div class="clock-wrap w-44 h-44 md:w-56 md:h-56 shrink-0 watt-shadow">
-    <svg viewBox="0 0 100 100" class="w-full h-full relative z-10">
-      <circle cx="50" cy="50" r="48" fill="transparent"/>
-      <g id="ticks"></g>
-      <line id="hour-hand"   x1="50" y1="50" x2="50" y2="26" class="clock-hand hand-smooth" stroke="rgb(var(--primary))" stroke-width="4" opacity="0.87"/>
-      <line id="minute-hand" x1="50" y1="50" x2="50" y2="16" class="clock-hand hand-smooth" stroke="rgb(var(--primary))" stroke-width="2.5" opacity="0.6"/>
-      <line id="second-hand" x1="50" y1="55" x2="50" y2="11" class="clock-hand hand-linear" stroke="rgb(var(--theme))" stroke-width="1.5"/>
-      <circle cx="50" cy="50" r="2.5" fill="rgb(var(--theme))"/>
-      <circle cx="50" cy="50" r="1" fill="white"/>
-    </svg>
-  </div>
-
-  <!-- Main card -->
-  <div class="watt-panel watt-shadow rounded-xl p-5 w-full max-w-sm flex flex-col gap-3">
-
-    <div class="flex items-center justify-between gap-3">
-      <div>
-        <div id="clock" class="text-4xl md:text-5xl font-mono font-bold tracking-tight leading-none">--:--</div>
-        <div id="date-display" class="text-xs font-medium mt-1 opacity-50 uppercase tracking-wider"></div>
-      </div>
-      <div id="ab-badge" class="day-badge" title="Today's schedule day">A</div>
-    </div>
-
-    <div style="height:1px;background:rgb(var(--content-secondary))"></div>
-
-    <div class="flex flex-col gap-1.5">
-      <div class="flex items-center gap-2">
-        <div id="current-period" class="text-xl md:text-2xl font-bold accent leading-tight flex-1">—</div>
-        <span id="period-pill" class="period-pill" style="display:none"></span>
-      </div>
-      <div id="countdown" class="text-base font-mono font-semibold opacity-80"></div>
-      <div id="next-period" class="text-xs opacity-40 italic"></div>
-
-      <div class="progress-track mt-1">
-        <div id="progress-bar" class="progress-fill" style="width:0%"></div>
-      </div>
-    </div>
-
-    <div id="easter-egg" class="hidden rounded-lg p-2 text-xs italic"
-      style="background:rgb(var(--theme)/0.08);color:rgb(var(--theme))">
-      🥚 <span id="egg-text"></span>
-    </div>
-  </div>
-</div>
-
-<!-- Period list panel -->
-<div id="schedule-panel" class="modal fixed top-12 right-3 z-40 w-60 watt-panel watt-shadow rounded-xl p-3">
-  <div class="text-xs font-bold uppercase tracking-wider opacity-50 mb-2 px-1">Today's Schedule</div>
-  <div id="period-list" class="flex flex-col gap-0.5"></div>
-</div>
-
-<!-- Settings modal -->
-<div id="settings-modal" class="modal fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(0,0,0,0.4);backdrop-filter:blur(6px)">
-  <div class="watt-panel watt-shadow w-full max-w-lg max-h-[90vh] overflow-y-auto custom-scroll rounded-xl p-6 relative">
-
-    <button onclick="toggleSettings()" class="absolute top-4 right-4 icon-btn">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
-
-    <h2 class="text-lg font-bold mb-5">Settings</h2>
-
-    <div class="flex flex-col gap-5">
-
-      <div class="flex items-center justify-between">
-        <span class="text-sm font-medium">Appearance</span>
-        <button id="dark-mode-toggle" onclick="cycleTheme()"
-          class="px-3 py-1 rounded-full text-xs font-bold accent-bg text-white transition">Light</button>
-      </div>
-
-      <div>
-        <label class="settings-label">Schedule</label>
-        <select id="schedule-select">
-          <option value="normal">Normal Keystone</option>
-          <option value="extended">Extended Keystone</option>
-          <option value="custom">Custom (Import below)</option>
-        </select>
-      </div>
-
-      <div>
-        <label class="settings-label">A/B Day Tracking</label>
-        <div class="flex gap-2 items-center">
-          <select id="ab-mode" class="flex-1">
-            <option value="auto">Auto (from calendar)</option>
-            <option value="off">Off</option>
-          </select>
-        </div>
-        <p class="text-xs mt-1.5 opacity-40">Auto uses Scarsdale's A/B pattern starting June 2, 2025 (Day B).</p>
-      </div>
-
-      <div>
-        <label class="settings-label">Time Format</label>
-        <select id="time-format">
-          <option value="12-seconds">12-hour with seconds</option>
-          <option value="12-noseconds">12-hour, no seconds</option>
-          <option value="24-seconds">24-hour (military)</option>
-        </select>
-      </div>
-
-      <div>
-        <label class="settings-label">Background</label>
-        <div class="grid grid-cols-3 gap-1.5 mb-3">
-          <button onclick="changeBg('default')" class="bg-btn" style="background:rgb(247 248 253);border:1px solid #ddd;color:#444">Clean</button>
-          <button onclick="changeBg('sunset')" class="bg-btn text-white" style="background:linear-gradient(135deg,#ee7752,#e73c7e)">Sunset</button>
-          <button onclick="changeBg('ocean')" class="bg-btn text-white" style="background:linear-gradient(135deg,#2193b0,#6dd5ed)">Ocean</button>
-          <button onclick="changeBg('midnight')" class="bg-btn text-white" style="background:linear-gradient(135deg,#0f2027,#2c5364)">Midnight</button>
-          <button onclick="changeBg('forest')" class="bg-btn text-white" style="background:linear-gradient(135deg,#134e1a,#52b788)">Forest</button>
-          <button onclick="changeBg('aurora')" class="bg-btn text-white" style="background:linear-gradient(135deg,#7c3aed,#06b6d4)">Aurora</button>
-          <button onclick="changeBg('rose')" class="bg-btn text-white" style="background:linear-gradient(135deg,#be123c,#c026d3)">Rose</button>
-          <button onclick="changeBg('steel')" class="bg-btn text-white" style="background:linear-gradient(135deg,#1e293b,#64748b)">Steel</button>
-          <button onclick="changeBg('peach')" class="bg-btn" style="background:linear-gradient(135deg,#fde68a,#fbcfe8)">Peach</button>
-        </div>
-        <div class="flex gap-2">
-          <div class="flex-1">
-            <span class="text-xs opacity-50 block mb-1">Solid color</span>
-            <input type="color" id="custom-color-picker" class="w-full h-8 rounded cursor-pointer border-0" oninput="changeBg('custom',this.value)">
-          </div>
-          <div class="flex-1">
-            <span class="text-xs opacity-50 block mb-1">Upload image</span>
-            <label class="flex items-center justify-center w-full h-8 rounded cursor-pointer text-xs font-medium transition"
-              style="background:rgb(var(--content-secondary));color:rgb(var(--secondary))">
-              Choose file
-              <input type="file" id="bg-upload" accept="image/*" class="hidden">
-            </label>
-          </div>
-        </div>
-        <p id="bg-msg" class="text-xs text-center mt-1 opacity-40">Images saved to cache. Keep under 3MB.</p>
-      </div>
-
-      <div id="custom-schedule-area" class="hidden">
-        <label class="settings-label">Custom Schedule JSON</label>
-        <textarea id="custom-json" rows="4" class="font-mono text-xs"
-          placeholder='[{"period":"P1","start":"8:00 AM","end":"8:45 AM"}]'></textarea>
-        <button id="save-custom" class="mt-2 w-full py-2 rounded text-xs font-bold text-white transition"
-          style="background:rgb(var(--theme))">Load Schedule</button>
-        <div id="custom-msg" class="text-xs mt-1 text-center"></div>
-      </div>
-
-      <!-- Legacy UI -->
-      <div style="border-top:1px solid rgb(var(--content-secondary));padding-top:1.25rem;margin-top:0.25rem">
-        <div class="flex items-center justify-between">
-          <div>
-            <span class="text-sm font-medium">Legacy UI</span>
-            <p class="text-xs mt-0.5 opacity-40">Classic look from Clock 1.0</p>
-          </div>
-          <button id="legacy-toggle" onclick="toggleLegacy()"
-            class="px-3 py-1 rounded-full text-xs font-bold transition"
-            style="background:rgb(var(--content-secondary));color:rgb(var(--secondary))">Off</button>
-        </div>
-      </div>
-
-    </div>
-  </div>
-</div>
-
-<!-- ════════════════════════════════════════
-     LEGACY UI OVERLAY
-     ════════════════════════════════════════ -->
-<div id="legacy-ui" style="display:none; position:fixed; inset:0; z-index:45; font-family:Arial,sans-serif; background-color:#f4f4f9; color:#333; flex-direction:column; align-items:center; justify-content:center; padding:20px; box-sizing:border-box; overflow-y:auto;">
-  <h1 style="font-size:2.5rem;margin-bottom:12px">Clock</h1>
-  <div id="legacy-clock" style="font-size:2rem;margin-bottom:8px;text-align:center"></div>
-  <div id="legacy-easter-egg" style="display:none;margin-bottom:16px;font-size:1rem;color:#2c3e50;background:linear-gradient(180deg,rgba(255,255,255,0.9),rgba(250,250,255,0.9));border:1px dashed rgba(0,0,0,0.08);padding:8px 12px;border-radius:8px;min-width:300px;max-width:600px;box-shadow:0 2px 6px rgba(0,0,0,0.03);font-style:italic"></div>
-  <div style="display:flex;gap:20px;margin-bottom:20px;align-items:center;justify-content:center;flex-wrap:wrap">
-    <div>
-      <label for="legacy-schedule" style="font-size:1.2rem;margin-right:10px">Schedule:</label>
-      <select id="legacy-schedule" style="font-size:1rem;padding:5px;background:#fff;color:#333;border:1px solid #ccc;border-radius:4px">
-        <option value="normal">Normal Keystone</option>
-        <option value="extended">Extended Keystone</option>
-      </select>
-    </div>
-    <div>
-      <label for="legacy-time-format" style="font-size:1.2rem;margin-right:10px">Time Format:</label>
-      <select id="legacy-time-format" style="font-size:1rem;padding:5px;background:#fff;color:#333;border:1px solid #ccc;border-radius:4px">
-        <option value="12-seconds">12-hour</option>
-        <option value="24-seconds">24-hour (Military)</option>
-        <option value="12-noseconds">12-hour (no seconds)</option>
-      </select>
-    </div>
-  </div>
-  <div style="background:#fff;border:1px solid #ccc;padding:20px;border-radius:10px;box-shadow:0 4px 8px rgba(0,0,0,0.1);text-align:center;font-size:1.5rem;min-width:300px;max-width:680px">
-    <div id="legacy-period">Loading...</div>
-    <div id="legacy-countdown" style="font-size:1.2rem;margin-top:10px;color:#555"></div>
-    <div id="legacy-next" style="font-size:1rem;margin-top:10px;color:#666;font-style:italic"></div>
-  </div>
-  <div style="text-align:center;font-size:0.9rem;color:#888;padding:1rem 0;border-top:1px solid #ccc;margin-top:2rem;width:100%;max-width:680px">
-    Arvin Farhadifar &nbsp;·&nbsp; <button onclick="toggleLegacy()" style="background:none;border:none;color:#a51618;font-size:0.9rem;cursor:pointer;text-decoration:underline">Back to Clock 3.0</button>
-  </div>
-</div>
-
-<!-- ── Toolbar ── -->
-<script src="./toolbar.js"></script>
-
-<script>
-// ════════════════════════════════════════════════════════════════
-//  CALENDAR DATA  ── fill these in before the school year starts
-// ════════════════════════════════════════════════════════════════
-
-// A_DAYS / B_DAYS: explicit list of school dates for each day type.
-// Format: 'YYYY-MM-DD'
-// Leave both arrays empty to fall back to the old auto-alternating logic.
-const A_DAYS = [
-  // e.g. '2025-09-03',
-  //      '2025-09-05',
-];
-
-const B_DAYS = [
-  // e.g. '2025-09-04',
-  //      '2025-09-08',
-];
-
-// HOLIDAYS / NO_SCHOOL: dates when school is closed (weekdays only — weekends
-// are already handled automatically). Holidays, breaks, snow days, etc.
-// Format: 'YYYY-MM-DD'
-// Optionally add a label after the date for display: { date, label }
-const NO_SCHOOL_DAYS = [
-  // Examples — replace with your actual calendar:
-  // { date: '2025-11-27', label: 'Thanksgiving' },
-  // { date: '2025-11-28', label: 'Thanksgiving Break' },
-  // { date: '2025-12-24', label: 'Winter Break' },
-  // { date: '2025-12-25', label: 'Winter Break' },
-  // { date: '2026-01-01', label: 'New Year\'s Day' },
-  // { date: '2026-01-19', label: 'MLK Day' },
-  // { date: '2026-02-16', label: 'Presidents\' Day' },
-  // { date: '2026-04-10', label: 'Spring Break' },
-];
-
-// ════════════════════════════════════════════════════════════════
-//  HELPER: date key  (local time, no UTC shift)
-// ════════════════════════════════════════════════════════════════
-function dateKey(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-// ════════════════════════════════════════════════════════════════
-//  isNoSchool(date) → false | 'weekend' | 'holiday' | string label
-// ════════════════════════════════════════════════════════════════
-function isNoSchool(date) {
-  const dow = date.getDay();
-  if (dow === 0) return 'weekend'; // Sunday
-  if (dow === 6) return 'weekend'; // Saturday
-
-  const key = dateKey(date);
-  const entry = NO_SCHOOL_DAYS.find(e =>
-    (typeof e === 'string' ? e : e.date) === key
-  );
-  if (entry) return (typeof entry === 'object' && entry.label) ? entry.label : 'holiday';
-
-  return false;
-}
-
-// ════════════════════════════════════════════════════════════════
-//  A/B Day Logic
-// ════════════════════════════════════════════════════════════════
-// Fallback anchor when the explicit lists are empty:
-// June 2 2025 = Day B
-const AB_ANCHOR_DATE = new Date(2025, 5, 2);
-
-function getSchoolDayCount(from, to) {
-  let count = 0;
-  const d = new Date(from); d.setHours(0,0,0,0);
-  const end = new Date(to); end.setHours(0,0,0,0);
-  while (d < end) {
-    const dow = d.getDay();
-    if (dow >= 1 && dow <= 5) count++;
-    d.setDate(d.getDate() + 1);
-  }
-  return count;
-}
-
-function getABDay(date) {
-  const abMode = localStorage.getItem('abMode') || 'auto';
-  if (abMode === 'off') return null;
-  if (abMode === 'manual-a') return 'A';
-  if (abMode === 'manual-b') return 'B';
-
-  // Weekend or holiday → no A/B
-  if (isNoSchool(date)) return null;
-
-  const key = dateKey(date);
-
-  // Explicit lists take priority over the auto-alternating fallback
-  if (A_DAYS.length > 0 || B_DAYS.length > 0) {
-    if (A_DAYS.includes(key)) return 'A';
-    if (B_DAYS.includes(key)) return 'B';
-    return null; // date not listed → treat as no school
+    let _installEvt = null;
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault();
+      _installEvt = e;
+      btn.style.display = '';
+    });
+    btn.addEventListener('click', async () => {
+      if (!_installEvt) return;
+      _installEvt.prompt();
+      const { outcome } = await _installEvt.userChoice;
+      if (outcome === 'accepted') btn.style.display = 'none';
+      _installEvt = null;
+    });
+    window.addEventListener('appinstalled', () => { btn.style.display = 'none'; });
   }
 
-  // Auto-alternating fallback (counts school days from anchor)
-  const d = new Date(date); d.setHours(0,0,0,0);
-  const anchor = new Date(AB_ANCHOR_DATE); anchor.setHours(0,0,0,0);
-  let schoolDays;
-  if (d >= anchor) schoolDays = getSchoolDayCount(anchor, d);
-  else schoolDays = -getSchoolDayCount(d, anchor);
-  return schoolDays % 2 === 0 ? 'B' : 'A';
-}
-
-// ─── Easter Eggs ───────────────────────────────────────────────────────────────
-const easterEggs = {
-  '2026-01-30': 'Almost February. Stay strong.',
-  '2026-02-14': 'Roses are red, homework is due.',
-  '2026-03-14': 'Pi Day. Calculate the circumference of a donut.',
-  '2026-04-01': 'Trust nothing today.',
-  '2026-05-04': 'May the 4th be with you.',
-  '2026-06-15': 'Summer is loading...',
-  'default': 'Keep grinding.'
-};
-
-// ─── Schedules ────────────────────────────────────────────────────────────────
-const schedules = {
-  normal: [
-    { period: "Keystone", start: "8:10 AM", end: "8:17 AM" },
-    { period: "Period 1", start: "8:20 AM", end: "9:09 AM" },
-    { period: "Period 2", start: "9:09 AM", end: "9:58 AM" },
-    { period: "Period 3", start: "9:58 AM", end: "10:47 AM" },
-    { period: "Period 4", start: "10:47 AM", end: "11:36 AM" },
-    { period: "Period 5", start: "11:36 AM", end: "12:11 PM" },
-    { period: "Period 6", start: "12:11 PM", end: "1:00 PM" },
-    { period: "Period 7", start: "1:00 PM", end: "1:48 PM" },
-    { period: "Period 8", start: "1:48 PM", end: "2:36 PM" }
-  ],
-  extended: [
-    { period: "Keystone", start: "8:10 AM", end: "8:47 AM" },
-    { period: "Period 1", start: "8:52 AM", end: "9:35 AM" },
-    { period: "Period 2", start: "9:35 AM", end: "10:18 AM" },
-    { period: "Period 3", start: "10:18 AM", end: "11:01 AM" },
-    { period: "Period 4", start: "11:01 AM", end: "11:44 AM" },
-    { period: "Period 5", start: "11:44 AM", end: "12:27 PM" },
-    { period: "Period 6", start: "12:27 PM", end: "1:10 PM" },
-    { period: "Period 7", start: "1:10 PM", end: "1:53 PM" },
-    { period: "Period 8", start: "1:53 PM", end: "2:36 PM" }
-  ],
-  custom: []
-};
-
-// ─── DOM refs ─────────────────────────────────────────────────────────────────
-const body = document.getElementById('main-body');
-const modal = document.getElementById('settings-modal');
-const schedulePanel = document.getElementById('schedule-panel');
-const hourHand = document.getElementById('hour-hand');
-const minHand = document.getElementById('minute-hand');
-const secHand = document.getElementById('second-hand');
-const scheduleSelect = document.getElementById('schedule-select');
-const timeFormat = document.getElementById('time-format');
-const abModeSelect = document.getElementById('ab-mode');
-const fileInput = document.getElementById('bg-upload');
-
-// ─── Draw tick marks ──────────────────────────────────────────────────────────
-(function drawTicks() {
-  const g = document.getElementById('ticks');
-  for (let i = 0; i < 60; i++) {
-    const angle = (i / 60) * 360;
-    const rad = (angle - 90) * Math.PI / 180;
-    const isHour = i % 5 === 0;
-    const r1 = isHour ? 40 : 44;
-    const r2 = 47;
-    const x1 = 50 + r1 * Math.cos(rad), y1 = 50 + r1 * Math.sin(rad);
-    const x2 = 50 + r2 * Math.cos(rad), y2 = 50 + r2 * Math.sin(rad);
-    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
-    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
-    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
-    line.setAttribute('stroke', 'rgb(var(--primary))');
-    line.setAttribute('stroke-width', isHour ? '1.8' : '0.6');
-    line.setAttribute('opacity', isHour ? '0.35' : '0.15');
-    line.setAttribute('stroke-linecap', 'round');
-    g.appendChild(line);
-  }
+  document.body.appendChild(nav);
 })();
-
-// ─── Toast ────────────────────────────────────────────────────────────────────
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.classList.remove('show'), 2500);
-}
-
-// ─── Init ─────────────────────────────────────────────────────────────────────
-function init() {
-  const theme = localStorage.getItem('theme') || 'auto';
-  applyTheme(theme);
-  updateThemeBtn();
-
-  const bgType = localStorage.getItem('bgType') || 'default';
-  const bgVal = localStorage.getItem('bgValue');
-  if (bgType === 'image' && bgVal) applyBgImage(bgVal);
-  else if (bgType === 'custom' && bgVal) { changeBg('custom', bgVal); document.getElementById('custom-color-picker').value = bgVal; }
-  else changeBg(bgType);
-
-  scheduleSelect.value = localStorage.getItem('schedule') || 'normal';
-  timeFormat.value = localStorage.getItem('format') || '12-seconds';
-  const savedAbMode = localStorage.getItem('abMode') || 'auto';
-  abModeSelect.value = (savedAbMode === 'manual-a' || savedAbMode === 'manual-b') ? 'auto' : savedAbMode;
-
-  const savedCustom = localStorage.getItem('customSchedule');
-  if (savedCustom) { schedules.custom = JSON.parse(savedCustom); document.getElementById('custom-json').value = savedCustom; }
-
-  toggleCustomInput();
-  updatePeriodList();
-}
-
-// ─── Theme ────────────────────────────────────────────────────────────────────
-function applyTheme(theme) {
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const useDark = theme === 'dark' || (theme === 'auto' && prefersDark);
-  document.documentElement.classList.toggle('dark', useDark);
-}
-
-function cycleTheme() {
-  const themes = ['light', 'auto', 'dark'];
-  const cur = localStorage.getItem('theme') || 'auto';
-  const next = themes[(themes.indexOf(cur) + 1) % themes.length];
-  localStorage.setItem('theme', next);
-  applyTheme(next);
-  updateThemeBtn();
-  showToast(next === 'auto' ? '🌓 Auto theme' : next === 'dark' ? '🌙 Dark mode' : '☀️ Light mode');
-}
-
-function updateThemeBtn() {
-  const btn = document.getElementById('dark-mode-toggle');
-  const t = localStorage.getItem('theme') || 'auto';
-  btn.textContent = t === 'dark' ? 'Dark' : t === 'light' ? 'Light' : 'Auto';
-}
-
-// ─── Toggle panels ────────────────────────────────────────────────────────────
-function toggleSettings() { modal.classList.toggle('active'); schedulePanel.classList.remove('active'); }
-function toggleScheduleList() { schedulePanel.classList.toggle('active'); modal.classList.remove('active'); }
-modal.addEventListener('click', e => { if (e.target === modal) toggleSettings(); });
-
-// ─── Background ───────────────────────────────────────────────────────────────
-function changeBg(type, value) {
-  body.style.backgroundImage = '';
-  body.style.backgroundColor = '';
-  body.style.backgroundSize = '';
-  body.classList.remove('animate-gradient');
-  localStorage.setItem('bgType', type);
-
-  const gradients = {
-    sunset:   'linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab)',
-    ocean:    'linear-gradient(-45deg, #2193b0, #6dd5ed, #cc2b5e, #753a88)',
-    midnight: 'linear-gradient(-45deg, #0f2027, #203a43, #2c5364)',
-    forest:   'linear-gradient(-45deg, #134e1a, #2d6a4f, #52b788, #95d5b2)',
-    aurora:   'linear-gradient(-45deg, #7c3aed, #2563eb, #06b6d4, #10b981)',
-    rose:     'linear-gradient(-45deg, #be123c, #e11d48, #c026d3, #7c3aed)',
-    steel:    'linear-gradient(-45deg, #1e293b, #334155, #64748b, #94a3b8)',
-    peach:    'linear-gradient(-45deg, #fde68a, #fca5a5, #fbcfe8, #fef3c7)',
-  };
-  if (gradients[type]) {
-    body.style.backgroundImage = gradients[type];
-    body.classList.add('animate-gradient');
-  } else if (type === 'custom' && value) {
-    body.style.backgroundColor = value;
-    localStorage.setItem('bgValue', value);
-  }
-}
-
-function applyBgImage(url) {
-  body.style.backgroundImage = `url(${url})`;
-  body.style.backgroundSize = 'cover';
-  body.style.backgroundPosition = 'center';
-  localStorage.setItem('bgType', 'image');
-}
-
-fileInput.addEventListener('change', e => {
-  const file = e.target.files[0]; if (!file) return;
-  const r = new FileReader();
-  r.onload = ev => {
-    const result = ev.target.result;
-    try { localStorage.setItem('bgValue', result); applyBgImage(result); showToast('🖼️ Background saved'); }
-    catch (_) { applyBgImage(result); showToast('⚠️ Image too large to save, shown temporarily'); }
-  };
-  r.readAsDataURL(file);
-});
-
-// ─── Schedule helpers ──────────────────────────────────────────────────────────
-function toMins(t) {
-  if (!t) return 0;
-  const [time, ampm] = t.split(' ');
-  let [h, m] = time.split(':').map(Number);
-  if (ampm === 'PM' && h !== 12) h += 12;
-  if (ampm === 'AM' && h === 12) h = 0;
-  return h * 60 + m;
-}
-
-function getScheduleData() {
-  return schedules[scheduleSelect.value] || schedules.normal;
-}
-
-// ─── Period list panel ─────────────────────────────────────────────────────────
-function updatePeriodList() {
-  const list = document.getElementById('period-list');
-  const now = new Date();
-  const noSchool = isNoSchool(now);
-  if (noSchool) {
-    const label = noSchool === 'weekend' ? 'Weekend — no school'
-                : noSchool === 'holiday' ? 'No school today'
-                : `${noSchool} — no school`;
-    list.innerHTML = `<div class="period-list-item" style="opacity:0.5;font-style:italic">${label}</div>`;
-    return;
-  }
-  const data = getScheduleData();
-  const curMins = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
-  list.innerHTML = '';
-  data.forEach(p => {
-    const s = toMins(p.start), e = toMins(p.end);
-    const active = curMins >= s && curMins < e;
-    const past = curMins >= e;
-    const div = document.createElement('div');
-    div.className = 'period-list-item' + (active ? ' active-period' : '');
-    div.style.opacity = past ? '0.35' : '1';
-    div.innerHTML = `
-      <div class="period-dot${active ? ' active' : ''}"></div>
-      <span class="flex-1 font-medium" style="font-size:0.8rem">${p.period}</span>
-      <span style="font-size:0.75rem;opacity:0.5">${p.start}–${p.end}</span>
-    `;
-    list.appendChild(div);
-  });
-}
-
-// ─── Main clock update ─────────────────────────────────────────────────────────
-function updateClock() {
-  const now = new Date();
-  const fmt = timeFormat.value;
-  const showSec = !fmt.includes('noseconds');
-  const is12 = fmt.startsWith('12');
-  const s = now.getSeconds(), m = now.getMinutes(), h = now.getHours();
-
-  const sDeg = (s / 60) * 360;
-  const mDeg = (m / 60) * 360 + (s / 60) * 6;
-  const hDeg = ((h % 12) / 12) * 360 + (m / 60) * 30;
-  secHand.style.transform = `rotate(${sDeg}deg)`;
-  minHand.style.transform = `rotate(${mDeg}deg)`;
-  hourHand.style.transform = `rotate(${hDeg}deg)`;
-  secHand.style.opacity = showSec ? '1' : '0';
-
-  const timeStr = now.toLocaleTimeString('en-US', {
-    hour: 'numeric', minute: '2-digit',
-    second: showSec ? '2-digit' : undefined,
-    hour12: is12
-  });
-  document.getElementById('clock').textContent = timeStr;
-  document.getElementById('date-display').textContent = now.toLocaleDateString('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
-  });
-
-  const abMode = localStorage.getItem('abMode') || 'auto';
-  const abDay = getABDay(now);
-  const badge = document.getElementById('ab-badge');
-  if (abDay && abMode !== 'off') {
-    badge.style.display = '';
-    badge.textContent = abDay;
-    badge.className = 'day-badge' + (abDay === 'B' ? ' day-b' : '');
-    badge.title = `Day ${abDay}`;
-  } else {
-    badge.style.display = 'none';
-  }
-
-  const dateKey = now.toISOString().slice(0,10);
-  const egg = easterEggs[dateKey] || (now.getHours() === 0 && now.getMinutes() === 0 ? easterEggs.default : null);
-  if (egg) {
-    document.getElementById('easter-egg').classList.remove('hidden');
-    document.getElementById('egg-text').textContent = egg;
-  } else {
-    document.getElementById('easter-egg').classList.add('hidden');
-  }
-
-  const periodEl = document.getElementById('current-period');
-  const countEl = document.getElementById('countdown');
-  const nextEl = document.getElementById('next-period');
-  const bar = document.getElementById('progress-bar');
-  const pill = document.getElementById('period-pill');
-
-  // ── No-school check (weekend / holiday) ──────────────────────────────────
-  const noSchool = isNoSchool(now);
-  if (noSchool) {
-    const isWeekend = noSchool === 'weekend';
-    periodEl.textContent = isWeekend ? 'Weekend' : (noSchool === 'holiday' ? 'No School' : noSchool);
-    countEl.textContent  = isWeekend ? 'Enjoy your days off 🎉' : 'Enjoy the day off 🎉';
-    nextEl.textContent   = '';
-    bar.style.width      = '100%';
-    countEl.style.color  = '';
-    countEl.classList.remove('pulse-ring'); countEl._pulsing = false;
-    pill.style.display   = 'none';
-    updatePeriodList();
-    return;
-  }
-
-  const data = getScheduleData();
-  const curMins = h * 60 + m + s / 60;
-  let cur = null, next = null;
-
-  for (let i = 0; i < data.length; i++) {
-    const ps = toMins(data[i].start), pe = toMins(data[i].end);
-    if (curMins >= ps && curMins < pe) {
-      cur = { ...data[i], startMins: ps, endMins: pe };
-      next = data[i + 1] || null;
-      break;
-    }
-    if (curMins < ps) { next = data[i]; break; }
-  }
-
-  if (cur) {
-    periodEl.textContent = cur.period;
-    pill.style.display = '';
-    const left = cur.endMins - curMins;
-    const mLeft = Math.floor(left);
-    if (showSec) {
-      const sLeft = Math.floor((left - mLeft) * 60);
-      countEl.textContent = `${mLeft}m ${sLeft}s left`;
-    } else {
-      countEl.textContent = `${mLeft}m left`;
-    }
-    if (next) {
-      nextEl.textContent = `Next: ${next.period} at ${next.start}`;
-      pill.textContent = next.period;
-    } else {
-      nextEl.textContent = 'Last period';
-      pill.style.display = 'none';
-    }
-    const total = cur.endMins - cur.startMins;
-    const elapsed = curMins - cur.startMins;
-    bar.style.width = `${Math.min(100, (elapsed / total) * 100)}%`;
-
-    if (showSec && mLeft < 2) {
-      countEl.style.color = 'rgb(239 68 68)';
-      if (!countEl._pulsing) { countEl.classList.add('pulse-ring'); countEl._pulsing = true; }
-    } else {
-      countEl.style.color = '';
-      countEl.classList.remove('pulse-ring'); countEl._pulsing = false;
-    }
-  } else if (next) {
-    const mUntil = toMins(next.start) - curMins;
-    periodEl.textContent = mUntil > 1 ? 'Free Time' : 'Starting soon';
-    countEl.textContent = mUntil > 0 ? `${Math.floor(mUntil)}m until ${next.period}` : '';
-    nextEl.textContent = `${next.period} starts at ${next.start}`;
-    bar.style.width = '0%';
-    countEl.style.color = '';
-    pill.style.display = 'none';
-  } else {
-    periodEl.textContent = "School's Out";
-    countEl.textContent = 'See you tomorrow 👋';
-    nextEl.textContent = '';
-    bar.style.width = '100%';
-    countEl.style.color = '';
-    pill.style.display = 'none';
-  }
-
-  updatePeriodList();
-}
-
-// ─── Settings wiring ───────────────────────────────────────────────────────────
-scheduleSelect.addEventListener('change', () => {
-  localStorage.setItem('schedule', scheduleSelect.value);
-  toggleCustomInput();
-  updateClock();
-});
-
-function toggleCustomInput() {
-  document.getElementById('custom-schedule-area').classList.toggle('hidden', scheduleSelect.value !== 'custom');
-}
-
-document.getElementById('save-custom').addEventListener('click', () => {
-  try {
-    const val = document.getElementById('custom-json').value;
-    const parsed = JSON.parse(val);
-    if (!Array.isArray(parsed)) throw new Error();
-    schedules.custom = parsed;
-    localStorage.setItem('customSchedule', val);
-    document.getElementById('custom-msg').innerHTML = "<span style='color:#22c55e'>✓ Loaded</span>";
-    showToast('✓ Custom schedule loaded');
-    updateClock();
-  } catch (_) {
-    document.getElementById('custom-msg').innerHTML = "<span style='color:#ef4444'>Invalid JSON</span>";
-  }
-});
-
-timeFormat.addEventListener('change', () => {
-  localStorage.setItem('format', timeFormat.value);
-  updateClock();
-});
-
-abModeSelect.addEventListener('change', () => {
-  localStorage.setItem('abMode', abModeSelect.value);
-  updateClock();
-  showToast(abModeSelect.value === 'auto' ? '📅 A/B auto-detect on' : '📅 A/B hidden');
-});
-
-// ─── Legacy UI ────────────────────────────────────────────────────────────────
-function toggleLegacy() {
-  const isLegacy = localStorage.getItem('legacyUI') === 'true';
-  const next = !isLegacy;
-  localStorage.setItem('legacyUI', next);
-  applyLegacyState(next);
-}
-
-function applyLegacyState(on) {
-  const overlay = document.getElementById('legacy-ui');
-  const btn = document.getElementById('legacy-toggle');
-  overlay.style.display = on ? 'flex' : 'none';
-  if (btn) {
-    btn.textContent = on ? 'On' : 'Off';
-    btn.style.background = on ? 'rgb(var(--theme))' : 'rgb(var(--content-secondary))';
-    btn.style.color = on ? 'white' : 'rgb(var(--secondary))';
-  }
-  // Sync legacy selects from main settings
-  if (on) {
-    const ls = document.getElementById('legacy-schedule');
-    const lf = document.getElementById('legacy-time-format');
-    if (ls) ls.value = scheduleSelect.value === 'custom' ? 'normal' : scheduleSelect.value;
-    if (lf) lf.value = timeFormat.value;
-    updateLegacyClock();
-  }
-}
-
-function updateLegacyClock() {
-  const now = new Date();
-  const fmt = document.getElementById('legacy-time-format')?.value || '12-seconds';
-  const showSec = !fmt.includes('noseconds');
-  const is12 = fmt.startsWith('12');
-  const s = now.getSeconds(), m = now.getMinutes(), h = now.getHours();
-
-  // Digital time + date
-  const timeStr = now.toLocaleTimeString('en-US', {
-    hour: 'numeric', minute: '2-digit',
-    second: showSec ? '2-digit' : undefined,
-    hour12: is12
-  });
-  const dateStr = now.toLocaleDateString('en-US', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-  });
-  document.getElementById('legacy-clock').textContent = `${timeStr}, ${dateStr}`;
-
-  // Easter egg (reuse main map)
-  const key = dateKey(now);
-  const legacyEgg = document.getElementById('legacy-easter-egg');
-  const eggEntry = easterEggs[key];
-  if (eggEntry && eggEntry.trim()) {
-    legacyEgg.style.display = 'block';
-    legacyEgg.textContent = eggEntry;
-  } else {
-    legacyEgg.style.display = 'none';
-  }
-
-  // Period logic
-  const periodEl   = document.getElementById('legacy-period');
-  const countEl    = document.getElementById('legacy-countdown');
-  const nextEl     = document.getElementById('legacy-next');
-
-  const noSchool = isNoSchool(now);
-  if (noSchool) {
-    const isWknd = noSchool === 'weekend';
-    periodEl.textContent = isWknd ? 'Weekend' : (noSchool === 'holiday' ? 'No School' : noSchool);
-    countEl.textContent  = isWknd ? 'Enjoy your days off 🎉' : 'Enjoy the day off 🎉';
-    nextEl.textContent   = '';
-    return;
-  }
-
-  const schedType = document.getElementById('legacy-schedule')?.value || 'normal';
-  const data = schedules[schedType] || schedules.normal;
-  const curMins = h * 60 + m + s / 60;
-  let cur = null, next = null;
-
-  for (let i = 0; i < data.length; i++) {
-    const ps = toMins(data[i].start), pe = toMins(data[i].end);
-    if (curMins >= ps && curMins < pe) {
-      cur = { ...data[i], startMins: ps, endMins: pe };
-      next = data[i + 1] || null;
-      break;
-    }
-    if (curMins < ps) { next = data[i]; break; }
-  }
-
-  if (cur) {
-    periodEl.textContent = cur.period;
-    const left = cur.endMins - curMins;
-    const mLeft = Math.floor(left);
-    const sLeft = Math.floor((left - mLeft) * 60);
-    countEl.textContent = showSec ? `Time left: ${mLeft}m ${sLeft}s` : `Time left: ${mLeft}m`;
-    nextEl.textContent  = next ? `Next: ${next.period} at ${next.start}` : 'After school';
-  } else if (next) {
-    const mUntil = toMins(next.start) - curMins;
-    periodEl.textContent = mUntil > 1 ? 'Before school' : 'Starting soon';
-    countEl.textContent  = '';
-    nextEl.textContent   = `Next: ${next.period} at ${next.start}`;
-  } else {
-    periodEl.textContent = 'After school';
-    countEl.textContent  = '';
-    nextEl.textContent   = 'School day has ended';
-  }
-}
-
-// Wire legacy selects
-document.getElementById('legacy-schedule')?.addEventListener('change', updateLegacyClock);
-document.getElementById('legacy-time-format')?.addEventListener('change', updateLegacyClock);
-
-// Patch the main setInterval to also tick legacy when active
-const _origUpdateClock = updateClock;
-function tickAll() {
-  _origUpdateClock();
-  if (localStorage.getItem('legacyUI') === 'true') updateLegacyClock();
-}
-
-// ─── Start ─────────────────────────────────────────────────────────────────────
-init();
-updateClock();
-applyLegacyState(localStorage.getItem('legacyUI') === 'true');
-setInterval(tickAll, 1000);
-
-if ('serviceWorker' in navigator) {
-  const sw = `self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => new Response(''))));`;
-  const blob = new Blob([sw], { type: 'text/javascript' });
-  navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
-}
-</script>
-</body>
-</html>
