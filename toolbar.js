@@ -1,38 +1,29 @@
 /**
  * ─────────────────────────────────────────────
  *  SHARED TOOLBAR  —  toolbar.js
- *  Drop  <script src="./toolbar.js"></script>
- *  anywhere before </body> on any page.
  *
- *  TO ADD / REMOVE ITEMS  ↓  edit NAV_ITEMS only.
- *  Each entry:
- *    { label: 'Display name', href: '/any/path/you/want' }
- *  Use any href you like — absolute paths, relative paths,
- *  or full URLs. Active tab is auto-detected from the URL.
+ *  TO ADD / REMOVE ITEMS: edit NAV_ITEMS only.
+ *  Just put whatever href you want — relative,
+ *  absolute, anything. It works like a normal link.
+ *
+ *  active: true  → marks this tab as highlighted.
+ *  Set it to true on whichever page you're on.
  * ─────────────────────────────────────────────
  */
 
 const NAV_ITEMS = [
-  { label: 'Clock',     href: './'           },
-  { label: 'Grades',    href: './grades'    },
-  { label: 'Countdown', href: './countdown' },
+  { label: 'Clock',     href: '/sms/',     active: false },
+  { label: 'Grades',    href: '/sms/grades',    active: false },
+  { label: 'Countdown', href: '/sms/countdown', active: false },
 ];
 
-/* ── PWA install (optional — shows only when browser fires the prompt) ────── */
+/* ── PWA install button — set false to hide it entirely ── */
 const SHOW_INSTALL = true;
 
-/* ═══════════════════════════════════════════════════════════════════
-   Internal — do not edit below unless you know what you're doing
-═══════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════
+   Don't edit below this line
+═══════════════════════════════════════════════════════ */
 (function () {
-  /* Detect active page by matching href tail against current path */
-  function isActive(href) {
-    const path = location.pathname;
-    const clean = href.replace(/\/index\.html$/, '');
-    return path === href || path === clean || path === clean + '/';
-  }
-
-  /* Inject styles once, scoped to #_toolbar so they never bleed */
   const style = document.createElement('style');
   style.textContent = `
     #_toolbar {
@@ -46,7 +37,6 @@ const SHOW_INSTALL = true;
       gap: 2px;
       padding: 4px;
       border-radius: 9999px;
-      /* neutral pill that works on any background */
       background: rgba(20, 20, 22, 0.72);
       border: 1px solid rgba(255,255,255,0.10);
       backdrop-filter: blur(18px);
@@ -95,7 +85,6 @@ const SHOW_INSTALL = true;
   `;
   document.head.appendChild(style);
 
-  /* Build the nav */
   const nav = document.createElement('nav');
   nav.id = '_toolbar';
   nav.setAttribute('aria-label', 'Site navigation');
@@ -110,14 +99,13 @@ const SHOW_INSTALL = true;
     const a = document.createElement('a');
     a.href = item.href;
     a.textContent = item.label;
-    if (isActive(item.href)) {
+    if (item.active) {
       a.className = '_active';
       a.setAttribute('aria-current', 'page');
     }
     nav.appendChild(a);
   });
 
-  /* PWA install button */
   if (SHOW_INSTALL) {
     const div = document.createElement('span');
     div.className = '_divider';
@@ -130,18 +118,16 @@ const SHOW_INSTALL = true;
     btn.setAttribute('aria-label', 'Install app');
     nav.appendChild(btn);
 
-    let _installEvt = null;
+    let _evt = null;
     window.addEventListener('beforeinstallprompt', e => {
-      e.preventDefault();
-      _installEvt = e;
-      btn.style.display = '';
+      e.preventDefault(); _evt = e; btn.style.display = '';
     });
     btn.addEventListener('click', async () => {
-      if (!_installEvt) return;
-      _installEvt.prompt();
-      const { outcome } = await _installEvt.userChoice;
+      if (!_evt) return;
+      _evt.prompt();
+      const { outcome } = await _evt.userChoice;
       if (outcome === 'accepted') btn.style.display = 'none';
-      _installEvt = null;
+      _evt = null;
     });
     window.addEventListener('appinstalled', () => { btn.style.display = 'none'; });
   }
