@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <link rel="icon" type="image/x-icon" href="./loigo.ico">
   <title>Clock</title>
-  <script src="./toolbar.js" defer></script>
   <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22School%20Clock%22,%22short_name%22:%22Clock%22,%22start_url%22:%22./%22,%22display%22:%22standalone%22,%22background_color%22:%22%23f7f8fd%22,%22theme_color%22:%22%23a51618%22}">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -1040,5 +1039,13 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
 }
 </script>
+<script>
+window._toolbar_items = [
+  { label: 'Clock',     href: './',          active: true  },
+  { label: 'Grades',    href: './grades/',    active: false },
+  { label: 'Countdown', href: './countdown/', active: false },
+];
+</script>
+<script src="./toolbar.js" defer></script>
 </body>
 </html>

@@ -92,6 +92,14 @@
   </script>
 
   <!-- ── Toolbar: one line to add to any page ── -->
-  <script src="../toolbar.js"></script>
+  <script>
+window._toolbar_items = [
+  { label: 'Clock',     href: '../',          active: false  },
+  { label: 'Grades',    href: '../grades/',    active: false },
+  { label: 'Countdown', href: './', active: true },
+];
+</script>
+<script src="./toolbar.js" defer></script>
+</body>
 </body>
 </html>
