@@ -1,35 +1,61 @@
 /**
  * ─────────────────────────────────────────────
- *  SHARED TOOLBAR  —  toolbar.js
- *  Drop  <script src="./toolbar.js"></script>
- *  anywhere before </body> on any page.
- *
- *  TO ADD / REMOVE ITEMS  ↓  edit NAV_ITEMS only.
- *  Each entry:
- *    { label: 'Display name', href: '/any/path/you/want' }
- *  Use any href you like — absolute paths, relative paths,
- *  or full URLs. Active tab is auto-detected from the URL.
+ * SHARED TOOLBAR  —  toolbar.js
+ * Drop  <script src="./toolbar.js" data-config="YOUR_JSON_URL"></script>
+ * anywhere before </body> on any page.
  * ─────────────────────────────────────────────
  */
 
-const NAV_ITEMS = [
-  { label: 'Clock',     href: './'           },
-  { label: 'Grades',    href: './grades'    },
-  { label: 'Countdown', href: './countdown' },
-];
+(async function () {
+  /* 1. Grab the URL from the script tag's data-config attribute */
+  const currentScript = document.currentScript;
+  const configUrl = currentScript ? currentScript.getAttribute('data-config') : null;
 
-/* ── PWA install (optional — shows only when browser fires the prompt) ────── */
-const SHOW_INSTALL = true;
+  let NAV_ITEMS = [];
 
-/* ═══════════════════════════════════════════════════════════════════
-   Internal — do not edit below unless you know what you're doing
-═══════════════════════════════════════════════════════════════════ */
-(function () {
-  /* Detect active page by matching href tail against current path */
+  /* 2. Fetch the remote items if a URL is provided */
+  if (configUrl) {
+    try {
+      const response = await fetch(configUrl);
+      if (!response.ok) throw new Error('Network response was not ok');
+      NAV_ITEMS = await response.json();
+    } catch (error) {
+      console.error('Toolbar: Failed to load links from URL', error);
+      return; // Stop execution if the fetch fails
+    }
+  } else {
+    // Fallback if no data-config URL is provided in the HTML
+    NAV_ITEMS = [
+      { label: 'Clock',     href: './'           },
+      { label: 'Grades',    href: './grades'    },
+      { label: 'Countdown', href: './countdown' },
+    ];
+  }
+
+  /* ── PWA install (optional — shows only when browser fires the prompt) ────── */
+  const SHOW_INSTALL = true;
+
+  /* ═══════════════════════════════════════════════════════════════════
+     Internal UI & Logic
+  ═══════════════════════════════════════════════════════════════════ */
+  
+  /* Upgraded isActive: Handles absolute URLs, relative paths, and normalizes them */
   function isActive(href) {
-    const path = location.pathname;
-    const clean = href.replace(/\/index\.html$/, '');
-    return path === href || path === clean || path === clean + '/';
+    try {
+      // Resolve the href against the current page's URL to handle relative links safely
+      const targetUrl = new URL(href, document.baseURI);
+      
+      // If the link goes to an entirely different domain, it's not the active page
+      if (targetUrl.host !== location.host) return false;
+
+      // Strip index.html for accurate comparison
+      const currentPath = location.pathname.replace(/\/index\.html$/, '');
+      const targetPath = targetUrl.pathname.replace(/\/index\.html$/, '');
+
+      return currentPath === targetPath || currentPath === targetPath + '/' || currentPath + '/' === targetPath;
+    } catch (e) {
+      return false;
+    }
   }
 
   /* Inject styles once, scoped to #_toolbar so they never bleed */
@@ -46,7 +72,6 @@ const SHOW_INSTALL = true;
       gap: 2px;
       padding: 4px;
       border-radius: 9999px;
-      /* neutral pill that works on any background */
       background: rgba(20, 20, 22, 0.72);
       border: 1px solid rgba(255,255,255,0.10);
       backdrop-filter: blur(18px);
