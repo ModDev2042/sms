@@ -26,9 +26,9 @@
   } else {
     // Fallback if no data-config URL is provided in the HTML
     NAV_ITEMS = [
-      { label: 'Clock',     href: './index.html' },
-      { label: 'Grades',    href: './grades.html' },
-      { label: 'Countdown', href: './countdown.html' },
+      { label: 'Clock',     href: './' },
+      { label: 'Grades',    href: './grades' },
+      { label: 'Countdown', href: './countdown' },
     ];
   }
 
