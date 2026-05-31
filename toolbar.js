@@ -21,14 +21,14 @@
       NAV_ITEMS = await response.json();
     } catch (error) {
       console.error('Toolbar: Failed to load links from URL', error);
-      return; // Stop execution if the fetch fails
+      return; 
     }
   } else {
     // Fallback if no data-config URL is provided in the HTML
     NAV_ITEMS = [
-      { label: 'Clock',     href: './'           },
-      { label: 'Grades',    href: './grades'    },
-      { label: 'Countdown', href: './countdown' },
+      { label: 'Clock',     href: './index.html' },
+      { label: 'Grades',    href: './grades.html' },
+      { label: 'Countdown', href: './countdown.html' },
     ];
   }
 
@@ -39,26 +39,32 @@
      Internal UI & Logic
   ═══════════════════════════════════════════════════════════════════ */
   
-  /* Upgraded isActive: Handles absolute URLs, relative paths, and normalizes them */
   function isActive(href) {
     try {
-      // Resolve the href against the current page's URL to handle relative links safely
       const targetUrl = new URL(href, document.baseURI);
-      
-      // If the link goes to an entirely different domain, it's not the active page
       if (targetUrl.host !== location.host) return false;
 
-      // Strip index.html for accurate comparison
-      const currentPath = location.pathname.replace(/\/index\.html$/, '');
-      const targetPath = targetUrl.pathname.replace(/\/index\.html$/, '');
+      const normalize = (path) => {
+        return path
+          .replace(/\/index\.html$/, '') 
+          .replace(/\.html$/, '')        
+          .replace(/\/$/, '');           
+      };
 
-      return currentPath === targetPath || currentPath === targetPath + '/' || currentPath + '/' === targetPath;
+      const currentClean = normalize(location.pathname);
+      const targetClean = normalize(targetUrl.pathname);
+
+      if ((currentClean === '' || currentClean === '/sms') && (targetClean === '' || targetClean === '/sms')) {
+        return true;
+      }
+
+      return currentClean === targetClean;
     } catch (e) {
       return false;
     }
   }
 
-  /* Inject styles once, scoped to #_toolbar so they never bleed */
+  /* Inject styles once */
   const style = document.createElement('style');
   style.textContent = `
     #_toolbar {
@@ -171,5 +177,14 @@
     window.addEventListener('appinstalled', () => { btn.style.display = 'none'; });
   }
 
+  // Inject navigation elements into DOM
   document.body.appendChild(nav);
+
+  /* URL Masking — Placed here at the very end so it doesn't break active classes */
+  if (location.pathname.endsWith('.html')) {
+    const cleanPath = location.pathname
+      .replace(/\/index\.html$/, '/')
+      .replace(/\.html$/, '');
+    window.history.replaceState(null, '', cleanPath + location.search + location.hash);
+  }
 })();
