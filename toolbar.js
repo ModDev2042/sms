@@ -1,70 +1,38 @@
 /**
  * ─────────────────────────────────────────────
- * SHARED TOOLBAR  —  toolbar.js
- * Drop  <script src="./toolbar.js" data-config="YOUR_JSON_URL"></script>
- * anywhere before </body> on any page.
+ *  SHARED TOOLBAR  —  toolbar.js
+ *  Drop  <script src="./toolbar.js"></script>
+ *  anywhere before </body> on any page.
+ *
+ *  TO ADD / REMOVE ITEMS  ↓  edit NAV_ITEMS only.
+ *  Each entry:
+ *    { label: 'Display name', href: '/any/path/you/want' }
+ *  Use any href you like — absolute paths, relative paths,
+ *  or full URLs. Active tab is auto-detected from the URL.
  * ─────────────────────────────────────────────
  */
 
-(async function () {
-  /* 1. Grab the URL from the script tag's data-config attribute */
-  const currentScript = document.currentScript;
-  const configUrl = currentScript ? currentScript.getAttribute('data-config') : null;
+const NAV_ITEMS = [
+  { label: 'Clock',     href: './'           },
+  { label: 'Grades',    href: './grades'    },
+  { label: 'Countdown', href: './countdown' },
+];
 
-  let NAV_ITEMS = [];
+/* ── PWA install (optional — shows only when browser fires the prompt) ────── */
+const SHOW_INSTALL = true;
 
-  /* 2. Fetch the remote items if a URL is provided */
-  if (configUrl) {
-    try {
-      const response = await fetch(configUrl);
-      if (!response.ok) throw new Error('Network response was not ok');
-      NAV_ITEMS = await response.json();
-    } catch (error) {
-      console.error('Toolbar: Failed to load links from URL', error);
-      return; 
-    }
-  } else {
-    // Fallback if no data-config URL is provided in the HTML
-    NAV_ITEMS = [
-      { label: 'Clock',     href: './' },
-      { label: 'Grades',    href: './grades' },
-      { label: 'Countdown', href: './countdown' },
-    ];
-  }
-
-  /* ── PWA install (optional — shows only when browser fires the prompt) ────── */
-  const SHOW_INSTALL = true;
-
-  /* ═══════════════════════════════════════════════════════════════════
-     Internal UI & Logic
-  ═══════════════════════════════════════════════════════════════════ */
-  
+/* ═══════════════════════════════════════════════════════════════════
+   Internal — do not edit below unless you know what you're doing
+═══════════════════════════════════════════════════════════════════ */
+(function () {
+  /* Detect active page by matching href tail against current path */
   function isActive(href) {
-    try {
-      const targetUrl = new URL(href, document.baseURI);
-      if (targetUrl.host !== location.host) return false;
-
-      const normalize = (path) => {
-        return path
-          .replace(/\/index\.html$/, '') 
-          .replace(/\.html$/, '')        
-          .replace(/\/$/, '');           
-      };
-
-      const currentClean = normalize(location.pathname);
-      const targetClean = normalize(targetUrl.pathname);
-
-      if ((currentClean === '' || currentClean === '/sms') && (targetClean === '' || targetClean === '/sms')) {
-        return true;
-      }
-
-      return currentClean === targetClean;
-    } catch (e) {
-      return false;
-    }
+    const path = location.pathname;
+    const clean = href.replace(/\/index\.html$/, '');
+    return path === href || path === clean || path === clean + '/';
   }
 
-  /* Inject styles once */
+  /* Inject styles once, scoped to #_toolbar so they never bleed */
   const style = document.createElement('style');
   style.textContent = `
     #_toolbar {
@@ -78,6 +46,7 @@
       gap: 2px;
       padding: 4px;
       border-radius: 9999px;
+      /* neutral pill that works on any background */
       background: rgba(20, 20, 22, 0.72);
       border: 1px solid rgba(255,255,255,0.10);
       backdrop-filter: blur(18px);
@@ -177,14 +146,5 @@
     window.addEventListener('appinstalled', () => { btn.style.display = 'none'; });
   }
 
-  // Inject navigation elements into DOM
   document.body.appendChild(nav);
-
-  /* URL Masking — Placed here at the very end so it doesn't break active classes */
-  if (location.pathname.endsWith('.html')) {
-    const cleanPath = location.pathname
-      .replace(/\/index\.html$/, '/')
-      .replace(/\.html$/, '');
-    window.history.replaceState(null, '', cleanPath + location.search + location.hash);
-  }
 })();
